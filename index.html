@@ -78,7 +78,6 @@
 
     // internal logical size (will match display via CSS)
     function resizeCanvas() {
-      // sync internal pixel size with CSS layout size for crispness
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width;
       canvas.height = rect.width * 0.25; // maintain 4:1 ratio
@@ -86,11 +85,11 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    const groundY = canvas.height * 0.8; // ground line at 80% of height
+    let groundY = canvas.height * 0.8; // will update on resize
 
     const dino = {
       x: 50,
-      y: groundY,
+      y: 0, // set after resize
       width: 40,
       height: 40,
       velocityY: 0,
@@ -261,6 +260,10 @@
       const delta = (ts - lastTimestamp) / 1000; // seconds
       lastTimestamp = ts;
 
+      resizeCanvas(); // keep in sync if container resizes
+      groundY = canvas.height * 0.8;
+      if (!dino.isJumping) dino.y = groundY;
+
       if (gameOver) {
         // overlay
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -268,13 +271,11 @@
         ctx.fillStyle = '#fff';
         ctx.font = '24px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 10);
+        ctx.fillText('haha hupe!!', canvas.width / 2, canvas.height / 2 - 10);
         ctx.font = '14px system-ui';
         ctx.fillText('Tap / Enter to restart', canvas.width / 2, canvas.height / 2 + 15);
         return;
       }
-
-      resizeCanvas(); // keep in sync if container resizes
 
       // draw
       drawBackground(delta);
@@ -333,6 +334,7 @@
     }, { passive: false });
 
     // start
+    dino.y = groundY;
     drawScore();
     requestAnimationFrame(gameLoop);
   </script>
