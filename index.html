@@ -1,1 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dino Runner Clone</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f0f0f0;
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    #gameCanvas {
+      background: #fff;
+      border: 2px solid #444;
+      display: block;
+      touch-action: none;
+    }
+    .score {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="600" height="150"></canvas>
+  <div class="score" id="scoreDisplay">Score: 0</div>
 
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+
+    const groundY = 120;
+
+    const dino = {
+      x: 50,
+      y: groundY,
+      width: 40,
+      height: 40,
+      velocityY: 0,
+      gravity: 1,
+      jumpStrength: 15,
+      isJumping: false
+    };
+
+    const obstacles = [];
+    let obstacleSpeed = 6;
+    let spawnTimer = 0;
+    let score = 0;
+    let gameOver = false;
+
+    // Image support
+    const dinoImg = new Image();
+    dinoImg.src = 'dino.png'; // put dino.png alongside this HTML
+    let dinoImgLoaded = false;
+    dinoImg.onload = () => {
+      dinoImgLoaded = true;
+      startGame();
+    };
+    dinoImg.onerror = () => {
+      // fallback to rectangle if image fails
+      startGame();
+    };
+
+    function drawDino() {
+      if (dinoImgLoaded) {
+        ctx.drawImage(dinoImg, dino.x, dino.y - dino.height, dino.width, dino.height);
+      } else {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(dino.x, dino.y - dino.height, dino.width, dino.height);
+      }
+    }
+
+    // cactus drawing helper
+    function drawCactus(x, baseY, width, height) {
+      ctx.fillStyle = '#2e8b57'; // cactus green
+      const bodyWidth = width * 0.6;
+      const armWidth = width * 0.2;
+      const armHeight = height * 0.4;
+
+      // main body
+      ctx.fillRect(x + (width - bodyWidth) / 2, baseY - height, bodyWidth, height);
+
+      // left arm
+      ctx.fillRect(x + (width - bodyWidth) / 2 - armWidth, baseY - height + armHeight, armWidth, armHeight);
+      ctx.fillRect(x + (width - bodyWidth) / 2 - armWidth, baseY - height + armHeight - armWidth, armWidth * 2, armWidth);
+
+      // right arm
+      ctx.fillRect(x + (width - bodyWidth) / 2 + bodyWidth, baseY - height + armHeight, armWidth, armHeight);
+      ctx.fillRect(x + (width - bodyWidth) / 2 + bodyWidth - armWidth, baseY - height + armHeight - armWidth, armWidth * 2, armWidth);
+    }
+
+    function createObstacle() {
+      const height = Math.random() * 30 + 20;
+      obstacles.push({
+        x: canvas.width,
+        y: groundY,
+        width: 20,
+        height: height
+      });
+    }
+
+    function drawObstacles() {
+      obstacles.forEach(obs => {
+        drawCactus(obs.x, obs.y, obs.width, obs.height);
+      });
+    }
+
+    function updateObstacles() {
+      obstacles.forEach(obs => {
+        obs.x -= obstacleSpeed;
+      });
+      if (obstacles.length > 0 && obstacles[0].x + obstacles[0].width < 0) {
+        obstacles.shift();
+        score++;
+        if (score % 5 === 0) obstacleSpeed += 0.5;
+      }
+    }
+
+    function checkCollision() {
+      for (const obs of obstacles) {
+        if (
+          dino.x < obs.x + obs.width &&
+          dino.x + dino.width > obs.x &&
+          dino.y > obs.y - obs.height &&
+          dino.y - dino.height < obs.y
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function drawScore() {
+      scoreDisplay.textContent = 'Score: ' + score;
+    }
+
+    function resetGame() {
+      obstacles.length = 0;
+      obstacleSpeed = 6;
+      spawnTimer = 0;
+      score = 0;
+      gameOver = false;
+      dino.y = groundY;
+      dino.velocityY = 0;
+      dino.isJumping = false;
+      drawScore();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop() {
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 10);
+        ctx.font = '16px Arial';
+        ctx.fillText('Tap / Space to restart', canvas.width / 2, canvas.height / 2 + 20);
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // ground line
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, groundY + 1);
+      ctx.lineTo(canvas.width, groundY + 1);
+      ctx.stroke();
+
+      // Dino physics
+      dino.velocityY += dino.gravity;
+      dino.y += dino.velocityY;
+      if (dino.y > groundY) {
+        dino.y = groundY;
+        dino.velocityY = 0;
+        dino.isJumping = false;
+      }
+
+      drawDino();
+
+      // Obstacles
+      if (spawnTimer <= 0) {
+        createObstacle();
+        spawnTimer = 90 - Math.min(score * 2, 60);
+      } else {
+        spawnTimer--;
+      }
+
+      updateObstacles();
+      drawObstacles();
+
+      if (checkCollision()) {
+        gameOver = true;
+      }
+
+      drawScore();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      spawnTimer = 0;
+      gameLoop();
+    }
+
+    window.addEventListener('keydown', e => {
+      if ((e.code === 'Space' || e.code === 'ArrowUp') && !dino.isJumping && !gameOver) {
+        dino.velocityY = -dino.jumpStrength;
+        dino.isJumping = true;
+      }
+      if (e.code === 'Enter' && gameOver) {
+        resetGame();
+      }
+    });
+
+    window.addEventListener('touchstart', e => {
+      if (!dino.isJumping && !gameOver) {
+        dino.velocityY = -dino.jumpStrength;
+        dino.isJumping = true;
+      }
+      if (gameOver) resetGame();
+      e.preventDefault();
+    }, { passive: false });
+
+    // fallback if image never loads after a short delay
+    setTimeout(() => {
+      if (!dinoImgLoaded && !gameOver) startGame();
+    }, 500);
+  </script>
+</body>
+</html>
